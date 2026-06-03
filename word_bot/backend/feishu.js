@@ -35,6 +35,37 @@ function isMasteredStatus(status) {
     return normalizeStatus(status) === STATUS_MASTERED;
 }
 
+function getFieldValue(value) {
+    if (value === undefined || value === null) return '';
+    if (Array.isArray(value)) return value.length > 0 ? getFieldValue(value[0]) : '';
+    if (typeof value === 'object') {
+        if (value.text !== undefined) return String(value.text);
+        if (value.name !== undefined) return String(value.name);
+        if (value.value !== undefined) return String(value.value);
+        if (value.id !== undefined) return String(value.id);
+        return JSON.stringify(value);
+    }
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed) || (parsed && typeof parsed === 'object')) {
+                return getFieldValue(parsed);
+            }
+        } catch (e) {}
+        return value;
+    }
+    return String(value);
+}
+
+function isCorrectField(value) {
+    const normalized = getFieldValue(value).trim();
+    return normalized === 'optHGT7gYf' || normalized === '正确' || normalized.toLowerCase() === 'true';
+}
+
+function hasSubmittedAnswer(record) {
+    return record?.fields?.is_correct !== undefined && record?.fields?.is_correct !== null;
+}
+
 const TRAD_TO_SIMP = {
     '為':'为','與':'与','過':'过','來':'来','時':'时','們':'们','這':'这',
     '個':'个','學':'学','國':'国','會':'会','對':'对','麼':'么','沒':'没',
@@ -587,21 +618,31 @@ async function getStats(userId) {
     const wordRecords = (await getRecords(WORD_TABLE)).filter(r => r.fields.user === userId);
     const total = wordRecords.length;
     const mastered = wordRecords.filter(r => isMasteredStatus(r.fields.Status)).length;
-    const statsRecords = await getRecords(STATS_TABLE);
-    const userRecord = statsRecords.find(r => r.fields.user === userId);
 
-    const acc = (userRecord?.fields?.total_tests || 0) > 0 
-        ? ((userRecord.fields.correct_count / (userRecord.fields.total_tests * 4)) * 100)
-        : 0;
+    const testRecords = await searchRecords(
+        TEST_TABLE,
+        { conjunction: "and", conditions: [{ field_name: "user", operator: "is", value: [userId] }] }
+    );
+    const submittedRecords = testRecords.filter(hasSubmittedAnswer);
+    const submittedTestIds = new Set(submittedRecords.map(r => getFieldValue(r.fields.test_id)).filter(Boolean));
+    const correctCount = submittedRecords.filter(r => isCorrectField(r.fields.is_correct)).length;
+    const totalQuestions = submittedRecords.length;
+    const lastTestTime = submittedRecords.reduce((max, r) => {
+        const time = Number(r.fields.test_time) || 0;
+        return time > max ? time : max;
+    }, 0);
+    const acc = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+
     return {
         user: userId,
         totalWords: total,
         masteredWords: mastered,
         pendingWords: total - mastered,
-        totalTests: userRecord?.fields?.total_tests || 0,
-        correctCount: userRecord?.fields?.correct_count || 0,
+        totalTests: submittedTestIds.size,
+        totalQuestions,
+        correctCount,
         accuracyRate: `${acc.toFixed(1)}%`,
-        lastTestTime: userRecord?.fields?.last_test_time || null
+        lastTestTime: lastTestTime || null
     };
 }
 
