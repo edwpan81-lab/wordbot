@@ -23,11 +23,12 @@ function normalizeStatus(status) {
     if (Array.isArray(status)) return normalizeStatus(status[0]);
     if (!status) return STATUS_PENDING;
     if (typeof status === 'object') {
-        return normalizeStatus(status.text || status.name || status.value || status.id);
+        return normalizeStatus(getFieldValue(status));
     }
     const value = String(status).trim();
-    if (value === STATUS_MASTERED || value === STATUS_MASTERED_LEGACY || value === '已掌握') return STATUS_MASTERED;
-    if (value === STATUS_PENDING || value === STATUS_PENDING_LEGACY || value === '待复习') return STATUS_PENDING;
+    const lower = value.toLowerCase();
+    if (lower === STATUS_MASTERED.toLowerCase() || value === STATUS_MASTERED_LEGACY || value === '已掌握') return STATUS_MASTERED;
+    if (lower === STATUS_PENDING.toLowerCase() || value === STATUS_PENDING_LEGACY || value === '待复习') return STATUS_PENDING;
     return STATUS_PENDING;
 }
 
@@ -563,14 +564,14 @@ async function submitAnswers(userId, testId, answers) {
     // 旧记录：按 word 全部答对 → 标记该 word 的所有 record 为已掌握（兼容方案）
     for (const [word, stats] of Object.entries(wordResults)) {
         if (stats.correct >= stats.total) {
-            const wordRecords = (await getRecords(WORD_TABLE)).filter(r => r.fields.user === userId && r.fields.Word === word);
+            const wordRecords = (await getRecords(WORD_TABLE)).filter(r => getFieldValue(r.fields.user) === userId && getFieldValue(r.fields.Word) === word);
             for (const wr of wordRecords) {
                 await updateRecord(WORD_TABLE, wr.record_id, { Status: STATUS_MASTERED });
             }
         }
     }
 
-    const wordRecords = (await getRecords(WORD_TABLE)).filter(r => r.fields.user === userId);
+    const wordRecords = (await getRecords(WORD_TABLE)).filter(r => getFieldValue(r.fields.user) === userId);
     const total = wordRecords.length;
     const mastered = wordRecords.filter(r => isMasteredStatus(r.fields.Status)).length;
 
@@ -615,7 +616,7 @@ async function submitAnswers(userId, testId, answers) {
 }
 
 async function getStats(userId) {
-    const wordRecords = (await getRecords(WORD_TABLE)).filter(r => r.fields.user === userId);
+    const wordRecords = (await getRecords(WORD_TABLE)).filter(r => getFieldValue(r.fields.user) === userId);
     const total = wordRecords.length;
     const mastered = wordRecords.filter(r => isMasteredStatus(r.fields.Status)).length;
 
@@ -667,7 +668,7 @@ async function addWord(targetUser, wordData) {
 
 async function getAllUsers() {
     const records = await getRecords(WORD_TABLE);
-    const userSet = new Set(records.map(r => r.fields.user).filter(u => u));
+    const userSet = new Set(records.map(r => getFieldValue(r.fields.user)).filter(u => u));
     return Array.from(userSet).sort();
 }
 
