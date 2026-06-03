@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 
 const API = 'https://wordbot-1-w9il.onrender.com';
+const STATUS_PENDING = 'Pending';
+const STATUS_MASTERED = 'Mastered';
 
 export default function App() {
   const [screen, setScreen] = useState('select');
@@ -51,7 +53,7 @@ export default function App() {
         setEditCnMeaning(data.cnMeaning || '');
         setEditContext(data.context || '');
         setEditDistractors(data.distractors || '');
-        setEditStatus(data.status || 'Pending');
+        setEditStatus(data.status || STATUS_PENDING);
         setScreen('editWord');
       } else {
         setMessage('单词不存在，可以直接录入');
@@ -291,11 +293,11 @@ export default function App() {
       <Text style={s.bigText}>{editWord}</Text>
       <Text style={s.label}>状态</Text>
       <View style={s.statusRow}>
-        <TouchableOpacity style={[s.statusBtn, editStatus === 'Pending' ? s.statusActive : null]} onPress={() => setEditStatus('Pending')}>
-          <Text style={[s.statusText, editStatus === 'Pending' ? s.statusTextActive : null]}>待复习</Text>
+        <TouchableOpacity style={[s.statusBtn, editStatus === STATUS_PENDING ? s.statusActive : null]} onPress={() => setEditStatus(STATUS_PENDING)}>
+          <Text style={[s.statusText, editStatus === STATUS_PENDING ? s.statusTextActive : null]}>待复习</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.statusBtn, editStatus === 'optF5P0W3O' ? s.statusActive : null]} onPress={() => setEditStatus('optF5P0W3O')}>
-          <Text style={[s.statusText, editStatus === 'optF5P0W3O' ? s.statusTextActive : null]}>已掌握</Text>
+        <TouchableOpacity style={[s.statusBtn, editStatus === STATUS_MASTERED ? s.statusActive : null]} onPress={() => setEditStatus(STATUS_MASTERED)}>
+          <Text style={[s.statusText, editStatus === STATUS_MASTERED ? s.statusTextActive : null]}>已掌握</Text>
         </TouchableOpacity>
       </View>
       <Text style={s.label}>英文释义</Text>
@@ -383,6 +385,20 @@ export default function App() {
                 <Text style={{color:'#666', fontSize:12}}>
                   目标: {q.word} | {q.isCorrect ? '✓ 正确' : `✗ (答:${q.yourAnswer} 对:${q.correctAnswer})`}
                 </Text>
+                {q.options?.length > 0 && (
+                  <View style={s.historyOptions}>
+                    {q.options.map((opt, k) => {
+                      const letter = opt.match(/^([A-D])\./)?.[1] || String.fromCharCode(65 + k);
+                      const isYour = letter === q.yourAnswer;
+                      const isCorrect = letter === q.correctAnswer;
+                      return (
+                        <Text key={k} style={[s.historyOptionText, isCorrect ? s.historyCorrect : null, isYour && !isCorrect ? s.historyWrong : null]}>
+                          {opt}{isCorrect ? ' ✓' : isYour ? ' ← 你的答案' : ''}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -517,6 +533,10 @@ const s = StyleSheet.create({
   // 统计颜色
   green: { color: '#50C878', fontSize: 15, fontWeight: '600' },
   orange: { color: '#F39C12', fontSize: 15, fontWeight: '600' },
+  historyOptions: { marginTop: 6, marginBottom: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: '#E0E0E0' },
+  historyOptionText: { color: '#666', fontSize: 12, lineHeight: 20 },
+  historyCorrect: { color: '#1E8E3E', fontWeight: '700' },
+  historyWrong: { color: '#E74C3C', fontWeight: '700' },
   
   // 多选
   multiItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 18, backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 10, borderWidth: 1.5, borderColor: '#E8E8E8' },

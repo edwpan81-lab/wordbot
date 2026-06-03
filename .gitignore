@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+*.log
+*.tmp
+*.bak
+
+# Local data files
+*.xlsx
+*.xls
+
+# Local tooling / IDE state
+.trae/
+.mcp.json
+
+# Separate frontend deployment repository
+wordbot-web/
